@@ -19,18 +19,18 @@ ssize_t read_(int fd, void *buf, size_t count) {
 }
 
 ssize_t write_(int fd, const void *buf, size_t count) {
-    size_t num_bytes = 0;
-    int wrote_bytes = 0;
-    /*INV wrote_bytes, num_bytes <= count*/
+    ssize_t num_bytes = 0;
+    ssize_t wrote_bytes = 0;
+    /* INV wrote_bytes, num_bytes <= count */
     while (count > 0) {
         wrote_bytes = write(fd, (char*) buf + num_bytes, count);
         if (wrote_bytes == -1) {
-            return wrote_bytes;
-        } else if (wrote_bytes == 0) {
-            return num_bytes;
+            return -1;
         }
-        count -= wrote_bytes;
+        count = count - (size_t) wrote_bytes;
         num_bytes += wrote_bytes;
     }
-    return 0;
+    fsync(fd);
+    return num_bytes;
 }
+

@@ -1,12 +1,15 @@
 CC=gcc
-CFLAGS=-pedantic -Wall -Wextra -Wno-unused-result -Wformat=2 -Wfloat-equal -Wconversion -Wlogical-op  -D_FORTIFY_SOURCE=2 -g -fPIC 
+CFLAGS=-pedantic -Wall -Wextra -Wno-unused-result -Wformat=2 -Wfloat-equal -Wconversion -Wlogical-op  -D_FORTIFY_SOURCE=2 -g -fPIC -c
 LDFLAGS=-shared
-TARGET=helpers.so
+TARGET=libhelpers.so
+OBJECTS=helpers.o
 
-all: $(TARGET)
-
-$(TARGET) : herlpers.o
+$(TARGET) : $(OBJECTS)
 	$(CC) $(LDFLAGS) $^ -o $@
+	rm $(OBJECTS)
 
-%.o: helpers.c helpers.h
+$(OBJECTS): helpers.c helpers.h
 	$(CC) $(CFLAGS) $< -o $@
+
+clean:
+	rm $(TARGET)
