@@ -37,7 +37,6 @@ ssize_t write_(int fd, const void *buf, size_t count) {
 ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
     ssize_t num_bytes = 0;
     ssize_t read_bytes = 0;
-    /* INV read_bytes, num_bytes <= count */
     while (count > 0) {
         read_bytes = read_(fd, (char*) buf + num_bytes, 1);
         if (read_bytes == -1) {
