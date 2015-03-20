@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "helpers.h"
-#define MAX_SIZE 1024 * 1024
+#define MAX_SIZE 4096
 
 char buff[MAX_SIZE];
 ssize_t read_bytes, wrote_bytes;
