@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../lib/helpers.h"
-#define MAX_SIZE 4096
+#define MAX_SIZE 4097
 
 ssize_t read_bytes, i;
 char buff[MAX_SIZE], temp;

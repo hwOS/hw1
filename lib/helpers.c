@@ -10,11 +10,13 @@ ssize_t read_(int fd, void *buf, size_t count) {
         if (read_bytes == -1) {
             return -1;
         } else if (read_bytes == 0) {
+            *((char*) buf + num_bytes) = 0;
             return num_bytes;
         }
         count -= (size_t) read_bytes;
         num_bytes += read_bytes;
     }
+    *((char*) buf + num_bytes) = 0;
     return num_bytes;
 }
 
