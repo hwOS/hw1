@@ -41,7 +41,7 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
     ssize_t read_bytes = 0;
     /* INV read_bytes, num_bytes <= count */
     while (count > 0) {
-        read_bytes = read_(fd, (char*) buf + num_bytes, 1);
+        read_bytes = read(fd, (char*) buf + num_bytes, 1);
         if (read_bytes == -1) {
             return -1;
         } else if (read_bytes == 0 || *((char*)buf + num_bytes) == delimiter) {
