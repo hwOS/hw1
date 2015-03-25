@@ -1,8 +1,12 @@
 #include "helpers.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#define MAX_SIZE 4097
 
 ssize_t read_(int fd, void *buf, size_t count) {
-    ssize_t num_bytes = 0;
+    size_t num_bytes = 0;
     ssize_t read_bytes = 0;
     /* INV read_bytes, num_bytes <= count */
     while (count > 0) {
@@ -10,16 +14,16 @@ ssize_t read_(int fd, void *buf, size_t count) {
         if (read_bytes == -1) {
             return -1;
         } else if (read_bytes == 0) {
-            return num_bytes;
+            return (ssize_t) num_bytes;
         }
         count -= (size_t) read_bytes;
-        num_bytes += read_bytes;
+        num_bytes += (size_t) read_bytes;
     }
-    return num_bytes;
+    return (ssize_t) num_bytes;
 }
 
 ssize_t write_(int fd, const void *buf, size_t count) {
-    ssize_t num_bytes = 0;
+    size_t num_bytes = 0;
     ssize_t wrote_bytes = 0;
     /* INV wrote_bytes, num_bytes <= count */
     while (count > 0) {
@@ -28,24 +32,70 @@ ssize_t write_(int fd, const void *buf, size_t count) {
             return -1;
         }
         count -= (size_t) wrote_bytes;
-        num_bytes += wrote_bytes;
+        num_bytes += (size_t) wrote_bytes;
     }
     fsync(fd);
-    return num_bytes;
+    return (ssize_t) num_bytes;
+}
+
+ssize_t find_delimter(char* buf, size_t num_bytes, char delimiter) {
+    size_t i;
+    for (i = 0; i < num_bytes; ++i) {
+        if (buf[i] == delimiter) {
+            return (ssize_t) i;
+        }
+    }
+    return -1;
+}
+
+static void move_str(char* to, char* from, size_t count, size_t* size_from, size_t size_to) {
+    size_t i;
+    if (size_to < (size_t) count) {
+        fprintf(stderr, "count(%lu) < size of word(%lu)", size_to, count);
+        abort();
+    }
+
+    for (i = 0; i < count; ++i) {
+        to[i] = from[i];
+    }
+    to[count] = 0;
+
+    count++; /* exclude delimiter */
+    for (i = count; i <= *size_from; ++i) {
+        from[i - count] = from[i];
+    }
+    if (count > *size_from) {
+        *size_from = 0;
+    } else {
+        *size_from -= count;
+    }
 }
 
 ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
-    ssize_t num_bytes = 0;
+    static char local_buf[MAX_SIZE];
+    static size_t size_local_buf = 0, temp;
+    ssize_t i;
     ssize_t read_bytes = 0;
-    while (count > 0) {
-        read_bytes = read_(fd, (char*) buf + num_bytes, 1);
+    if ((i = find_delimter(local_buf, size_local_buf, delimiter)) != -1) {
+        move_str(buf, local_buf, (size_t) i, &size_local_buf, count);
+        return i;
+    }
+
+    while (size_local_buf < MAX_SIZE) {
+        read_bytes = read(fd, local_buf + size_local_buf, MAX_SIZE - size_local_buf);
         if (read_bytes == -1) {
             return -1;
-        } else if (read_bytes == 0 || *((char*)buf + num_bytes) == delimiter) {
-            return num_bytes + read_bytes;
+        } else if (read_bytes == 0) {
+            temp = size_local_buf;
+            move_str(buf, local_buf, size_local_buf, &size_local_buf, count);
+            return (ssize_t) temp;
         }
-        count -= (size_t) read_bytes;
-        num_bytes += read_bytes;
+        size_local_buf += (size_t) read_bytes;
+        if ((i = find_delimter(local_buf, size_local_buf, delimiter)) != -1) {
+            move_str(buf, local_buf, (size_t) i, &size_local_buf, count);
+            return i;
+        }
     }
-    return num_bytes;
+    printf("--%ld=", i);
+    return -1;
 }
