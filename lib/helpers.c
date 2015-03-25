@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/wait.h>
+#include <sys/time.h>
 #define MAX_SIZE 4097
 
 ssize_t read_(int fd, void *buf, size_t count) {
@@ -96,6 +98,17 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
             return i;
         }
     }
-    printf("--%ld=", i);
     return -1;
+}
+
+int spawn(const char * file, char * const argv []) {
+    int child_pid;
+    pid_t res;
+    if ((child_pid = fork())) {
+        res = waitpid(child_pid, &res, WUNTRACED);
+        if (res == child_pid) {
+            return 0;
+        }
+    } else {
+    }
 }
