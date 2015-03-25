@@ -26,6 +26,9 @@ int main() {
             buff[i] = buff[read_bytes - i - 1 - is_space];
             buff[read_bytes - i - 1 - is_space] = temp;
         }
+        buff[read_bytes] = ' ';
+        read_bytes++;
+        buff[read_bytes] = 0;
         write_(STDOUT_FILENO, buff, (size_t) read_bytes);
     }
     return 0;
