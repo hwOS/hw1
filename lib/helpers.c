@@ -101,14 +101,13 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
     return -1;
 }
 
-int spawn(const char * file, char * const argv []) {
+int spawn(const char * file, char* const argv []) {
     int child_pid;
-    pid_t res;
     if ((child_pid = fork())) {
-        res = waitpid(child_pid, &res, WUNTRACED);
-        if (res == child_pid) {
-            return 0;
-        }
+        int status;
+        waitpid(child_pid, &status, WUNTRACED);
+        return WEXITSTATUS(status);
     } else {
+        return execvp(file, argv);
     }
 }
