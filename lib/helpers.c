@@ -5,100 +5,64 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <sys/time.h>
-#define MAX_SIZE 4097
 
 ssize_t read_(int fd, void *buf, size_t count) {
-    size_t num_bytes = 0;
-    ssize_t read_bytes = 0;
-    /* INV read_bytes, num_bytes <= count */
-    while (count > 0) {
-        read_bytes = read(fd, (char*) buf + num_bytes, count);
-        if (read_bytes == -1) {
+    size_t read_bytes = 0;
+    ssize_t last_read_bytes = 0;
+    char* buff = buf;
+    while (count > read_bytes) {
+        last_read_bytes = read(fd, buff + read_bytes, count - read_bytes);
+        if (last_read_bytes == -1) {
             return -1;
-        } else if (read_bytes == 0) {
-            return (ssize_t) num_bytes;
+        } else if (last_read_bytes == 0) {
+            return (ssize_t) read_bytes;
         }
-        count -= (size_t) read_bytes;
-        num_bytes += (size_t) read_bytes;
+        read_bytes += (size_t) last_read_bytes;
     }
-    return (ssize_t) num_bytes;
+    return (ssize_t) read_bytes;
 }
 
 ssize_t write_(int fd, const void *buf, size_t count) {
-    size_t num_bytes = 0;
-    ssize_t wrote_bytes = 0;
-    /* INV wrote_bytes, num_bytes <= count */
-    while (count > 0) {
-        wrote_bytes = write(fd, (char*) buf + num_bytes, count);
-        if (wrote_bytes == -1) {
+    size_t wrote_bytes = 0;
+    ssize_t last_wrote_bytes = 0;
+    const char* buff = buf;
+    while (count > wrote_bytes) {
+        last_wrote_bytes = write(fd, buff + wrote_bytes, count - wrote_bytes);
+        if (last_wrote_bytes == -1) {
             return -1;
         }
-        count -= (size_t) wrote_bytes;
-        num_bytes += (size_t) wrote_bytes;
+        wrote_bytes += (size_t) last_wrote_bytes;
     }
     fsync(fd);
-    return (ssize_t) num_bytes;
+    return (ssize_t) wrote_bytes;
 }
 
-ssize_t find_delimter(char* buf, size_t num_bytes, char delimiter) {
+
+/*
+ * finish work when delimiter or EOF met, or count byte was read.
+ */
+ssize_t read_until(int fd, void* buf, size_t count, char delimiter) {
     size_t i;
-    for (i = 0; i < num_bytes; ++i) {
-        if (buf[i] == delimiter) {
-            return (ssize_t) i;
-        }
-    }
-    return -1;
-}
+    ssize_t last_read_bytes = 0;
+    size_t read_bytes = 0;
+    char* buff = buf;
 
-static void move_str(char* to, char* from, size_t count, size_t* size_from, size_t size_to) {
-    size_t i;
-    if (size_to < (size_t) count) {
-        fprintf(stderr, "count(%lu) < size of word(%lu)", size_to, count);
-        abort();
-    }
-
-    for (i = 0; i < count; ++i) {
-        to[i] = from[i];
-    }
-    to[count] = 0;
-
-    count++; /* exclude delimiter */
-    for (i = count; i <= *size_from; ++i) {
-        from[i - count] = from[i];
-    }
-    if (count > *size_from) {
-        *size_from = 0;
-    } else {
-        *size_from -= count;
-    }
-}
-
-ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
-    static char local_buf[MAX_SIZE];
-    static size_t size_local_buf = 0, temp;
-    ssize_t i;
-    ssize_t read_bytes = 0;
-    if ((i = find_delimter(local_buf, size_local_buf, delimiter)) != -1) {
-        move_str(buf, local_buf, (size_t) i, &size_local_buf, count);
-        return i;
-    }
-
-    while (size_local_buf < MAX_SIZE) {
-        read_bytes = read(fd, local_buf + size_local_buf, MAX_SIZE - size_local_buf);
-        if (read_bytes == -1) {
+    while (read_bytes < count) {
+        last_read_bytes = read(fd, buff + read_bytes, count - read_bytes);
+        if (last_read_bytes == -1) {
             return -1;
-        } else if (read_bytes == 0) {
-            temp = size_local_buf;
-            move_str(buf, local_buf, size_local_buf, &size_local_buf, count);
-            return (ssize_t) temp;
+        } else if (last_read_bytes == 0) {
+            return (ssize_t) read_bytes;
         }
-        size_local_buf += (size_t) read_bytes;
-        if ((i = find_delimter(local_buf, size_local_buf, delimiter)) != -1) {
-            move_str(buf, local_buf, (size_t) i, &size_local_buf, count);
-            return i;
+
+        read_bytes += (size_t) last_read_bytes;
+        for (i = read_bytes - (size_t) last_read_bytes; i < read_bytes; ++i) {
+            if (buff[i] == delimiter) {
+                return (ssize_t) read_bytes;
+            }
         }
     }
-    return -1;
+    return (ssize_t) read_bytes;
 }
 
 int spawn(const char * file, char* const argv []) {
