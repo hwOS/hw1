@@ -5,6 +5,9 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
 ssize_t read_(int fd, void *buf, size_t count) {
     size_t read_bytes = 0;
@@ -72,6 +75,11 @@ int spawn(const char * file, char* const argv []) {
         waitpid(child_pid, &status, WUNTRACED);
         return WEXITSTATUS(status);
     } else {
+        int dev_null = open("/dev/null", O_RDONLY);
+        /*printf("dev_null:%d\n", dev_null);*/
+        /*int res_dup = dup2(dev_null, STDERR_FILENO);*/
+        /*printf("res_dup: %d\n stderr: %d\n", res_dup, STDERR_FILENO);*/
+
         return execvp(file, argv);
     }
 }

@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
         argv[argc - 1] = buf;
         argv[argc] = NULL;
 
+        printf("DEBUG: %s\n", buf);
         if (spawn(argv[0], argv) == 0) {
             printf("%s\n", buf);
         }
