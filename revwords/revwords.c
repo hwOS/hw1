@@ -3,12 +3,13 @@
 #include <string.h>
 #include "../lib/helpers.h"
 #define MAX_SIZE 4097
-
 ssize_t read_bytes, i;
 char buff[MAX_SIZE];
 char is_space;
 
-void reverse_word(char* source, size_t cnt) {
+/* source - null-terminated string */
+void reverse_word(char* source) {
+    size_t cnt = strlen(source);
     size_t i;
     char temp;
     for (i = 0; i < cnt / 2; ++i) {
@@ -18,24 +19,63 @@ void reverse_word(char* source, size_t cnt) {
     }
 }
 
+#define MAX_WORD_SIZE 4098
+struct word {
+    char* data;
+    ssize_t len;
+};
+
 /*
- * print first word, in reverse order, from source and moves remaining characters to the begin
- * return result size of the source
+ * return struct word that contains copy of first word from the source 
+ * and moves remaining characters (after delimiter) to the begin.
+ * field len = -1 when delimiter was not found.
+ */
+struct word get_word(char* source, char delimiter) {
+    static char data[MAX_WORD_SIZE];
+    static struct word res;
+    size_t len = strlen(source);
+    char* delimiter_pos = strchr(source, delimiter);
+    res.data = data;
+    res.len = -1;
+
+    if (delimiter_pos != NULL) {
+        res.len = (ssize_t)(delimiter_pos - source);
+        res.data[res.len] = 0;
+
+        strncpy(data, source, (size_t) res.len);
+        if (len == (size_t) res.len) {
+            source[0] = 0;
+        } else {
+            memmove(source, source + res.len + 1, len - (size_t) res.len); 
+        }
+    }
+    return res;
+}
+
+/*
+ * print first word, in reverse order with delimiter(except len(word) == len(source)), from source. 
+ * moves remaining characters to the begin
+ * return:
+ *   if len(word) != len(source) return len(word) + 1
+ *   if len(word) == len(source) return len(source)
+ *   if delimiter was not found  return -1
  */
 ssize_t print_word(char* source, char delimiter) {
     size_t len = strlen(source);
-    char* delimiter_pos = strchr(source, delimiter);
-    size_t pos;
-    if (delimiter_pos == NULL) return -1;
-    pos = (size_t)(delimiter_pos - source);
-    reverse_word(source, pos);
-
-    if (pos != len) {
-        pos++;
+    struct word first_word = get_word(source, delimiter);
+    if (first_word.len == -1) {
+        return -1;
     }
-    write_(STDOUT_FILENO, source, pos);
-    memmove(source, source + pos, len - pos + 1); 
-    return (ssize_t) (len - pos + 1);
+    reverse_word(first_word.data);
+    first_word.data[first_word.len] = delimiter;
+
+    if ((size_t) first_word.len != len) {
+        first_word.data[first_word.len] = delimiter;
+        first_word.len++;
+    }
+
+    write_(STDOUT_FILENO, first_word.data, (size_t) first_word.len);
+    return first_word.len;
 }
 
 int main() {
@@ -45,19 +85,19 @@ int main() {
     while (1) {
         last_read_bytes = read_until(STDIN_FILENO, buff + read_bytes, MAX_SIZE, ' ');
         if (last_read_bytes == -1) {
-            perror("in revwords: read_until: ");
+            perror("in revwords: read_until");
             return EXIT_FAILURE;
         } else if (last_read_bytes == 0) {
             print_word(buff, '\0');
             return 0;
         }
+        read_bytes += (size_t) last_read_bytes;
         while (1) {
-            read_bytes += (size_t) last_read_bytes;
             buff[read_bytes] = 0;
             if ((res_pr_w = print_word(buff, ' ')) == -1) {
                 break;
             }
-            read_bytes = (size_t) res_pr_w;
+            read_bytes -= (size_t) res_pr_w;
         }
     }
     return 0;
