@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#define MAX_WORD_SIZE 4098
 
 ssize_t read_(int fd, void *buf, size_t count) {
     size_t read_bytes = 0;
@@ -38,6 +39,32 @@ ssize_t write_(int fd, const void *buf, size_t count) {
     }
     fsync(fd);
     return (ssize_t) wrote_bytes;
+}
+
+/*
+ * return copy of the first word from the source 
+ * and moves remaining characters (after delimiter) to the begin.
+ * return NULL when delimiter was not found.
+ */
+char* get_word(char* source, char delimiter) {
+    static char word[MAX_WORD_SIZE];
+    size_t len = strlen(source);
+    char* delimiter_pos = strchr(source, delimiter);
+    size_t word_len = 0;
+
+    if (delimiter_pos != NULL) {
+        word_len = (size_t)(delimiter_pos - source);
+
+        strncpy(word, source, word_len);
+        word[word_len] = 0;
+        if (len == word_len) {
+            source[0] = 0;
+        } else {
+            memmove(source, source + word_len + 1, len - word_len); 
+        }
+        return word;
+    }
+    return NULL;
 }
 
 /*
