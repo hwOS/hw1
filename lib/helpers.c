@@ -40,7 +40,6 @@ ssize_t write_(int fd, const void *buf, size_t count) {
     return (ssize_t) wrote_bytes;
 }
 
-
 /*
  * finish work when delimiter or EOF met, or count byte was read.
  */
@@ -59,8 +58,9 @@ ssize_t read_until(int fd, void* buf, size_t count, char delimiter) {
         }
 
         read_bytes += (size_t) last_read_bytes;
-        for (i = read_bytes - (size_t) last_read_bytes; i < read_bytes; ++i) {
-            if (buff[i] == delimiter) {
+        buff[read_bytes] = 0;
+        for (i = 0; i < (size_t) last_read_bytes; ++i) {
+            if (buff[read_bytes - i - 1] == delimiter) {
                 return (ssize_t) read_bytes;
             }
         }
@@ -76,9 +76,11 @@ int spawn(const char * file, char* const argv []) {
         return WEXITSTATUS(status);
     } else {
         int dev_null = open("/dev/null", O_RDONLY);
-        /*printf("dev_null:%d\n", dev_null);*/
-        /*int res_dup = dup2(dev_null, STDERR_FILENO);*/
-        /*printf("res_dup: %d\n stderr: %d\n", res_dup, STDERR_FILENO);*/
+        if (fcntl(dev_null, F_SETFD, FD_CLOEXEC) == -1) {
+            perror("fcntl");
+            exit(1);
+        }
+        while ((dup2(dev_null, STDERR_FILENO) == -1) && (errno == EINTR)); 
 
         return execvp(file, argv);
     }

@@ -26,9 +26,7 @@ ssize_t print_word(char* source, char delimiter) {
     size_t len = strlen(source);
     char* delimiter_pos = strchr(source, delimiter);
     size_t pos;
-    if (delimiter_pos == NULL) {
-        return -1;
-    } 
+    if (delimiter_pos == NULL) return -1;
     pos = (size_t)(delimiter_pos - source);
     reverse_word(source, pos);
 
