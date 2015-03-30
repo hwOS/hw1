@@ -2,15 +2,17 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int main() {
-    char s[1000];
     char buf[1000];
-    scanf("%s", s);
-    printf("%s\n", s);
-    /*scanf("%s", s);*/
-    /*printf("%s\n", s);*/
-    read(STDIN_FILENO, buf, 5);
-    printf("buf: %s\n", buf);
+    int fl = open("file", O_RDONLY);
+    if (fork()) {
+        read(fl, buf, 5);
+        printf("parent:%s\n", buf);
+    } else {
+        read(fl, buf, 5);
+        printf("child:%s\n", buf);
+    }
     return 0;
 }
