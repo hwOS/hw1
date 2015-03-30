@@ -95,19 +95,27 @@ ssize_t read_until(int fd, void* buf, size_t count, char delimiter) {
 }
 
 int spawn(const char * file, char* const argv []) {
-    int child_pid;
-    if ((child_pid = fork())) {
+    pid_t child_pid = fork();
+    if (child_pid == -1) {
+        perror("helpers: spawn");
+        exit(EXIT_FAILURE);
+    }
+    if (child_pid != 0) {
         int status;
         waitpid(child_pid, &status, WUNTRACED);
         return WEXITSTATUS(status);
     } else {
-        int dev_null = open("/dev/null", O_RDONLY);
-        if (fcntl(dev_null, F_SETFD, FD_CLOEXEC) == -1) {
-            perror("helpers:spawn:fcntl");
-            exit(1);
-        }
-        while ((dup2(dev_null, STDERR_FILENO) == -1) && (errno == EINTR)); 
+        int dev_null = open("/dev/null", O_WRONLY);
+        while ((dup2(dev_null, STDERR_FILENO) == -1) && (errno == EINTR));
+        while ((dup2(dev_null, STDOUT_FILENO) == -1) && (errno == EINTR));
 
-        return execvp(file, argv);
+        if (close(dev_null) == -1) {
+            perror("helpers: spawn: close");
+            _exit(EXIT_FAILURE);
+        }
+
+        execvp(file, argv);
+        perror("helpers: spawn");
+        _exit(EXIT_FAILURE);
     }
 }
