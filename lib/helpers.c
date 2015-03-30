@@ -13,7 +13,7 @@ ssize_t read_(int fd, void *buf, size_t count) {
     size_t read_bytes = 0;
     ssize_t last_read_bytes = 0;
     char* buff = buf;
-    while (count > read_bytes) {
+    while (read_bytes < count) {
         last_read_bytes = read(fd, buff + read_bytes, count - read_bytes);
         if (last_read_bytes == -1) {
             return -1;
@@ -58,7 +58,6 @@ ssize_t read_until(int fd, void* buf, size_t count, char delimiter) {
         }
 
         read_bytes += (size_t) last_read_bytes;
-        buff[read_bytes] = 0;
         for (i = 0; i < (size_t) last_read_bytes; ++i) {
             if (buff[read_bytes - i - 1] == delimiter) {
                 return (ssize_t) read_bytes;
@@ -77,7 +76,7 @@ int spawn(const char * file, char* const argv []) {
     } else {
         int dev_null = open("/dev/null", O_RDONLY);
         if (fcntl(dev_null, F_SETFD, FD_CLOEXEC) == -1) {
-            perror("fcntl");
+            perror("helpers:spawn:fcntl");
             exit(1);
         }
         while ((dup2(dev_null, STDERR_FILENO) == -1) && (errno == EINTR)); 
