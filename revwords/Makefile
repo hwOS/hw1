@@ -8,4 +8,4 @@ $(TARGET): revwords.c
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ $(LIBS) -o $@
 
 clean:
-	rm $(TARGET)
+	rm -f $(TARGET)

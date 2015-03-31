@@ -8,4 +8,4 @@ $(TARGET): filter.c filter.h
 	$(CC) $(LDFLAGS) $(CFLAGS) $< $(LIBS) -o $@
 
 clean:
-	rm $(TARGET)
+	rm -f $(TARGET)
