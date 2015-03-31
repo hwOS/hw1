@@ -1,7 +1,7 @@
 #ifndef BUFIO_H
 #define BUFIO_H
 #include <unistd.h>
-
+#include <sys/types.h>
 
 struct buf_t {
     char* data;
@@ -17,7 +17,7 @@ size_t buf_size(struct buf_t*);
 
 /*
  * fill the buffer bytes read from fd, at lest required bytes
- * on error -1 is returned, otherwise return size of buf
+ * on error -1 is returned, otherwise return new size of buf
  */
 ssize_t buf_fill(int fd, struct buf_t *buf, size_t required);
 
