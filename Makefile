@@ -3,10 +3,12 @@ all:
 	make -C cat/
 	make -C revwords/
 	make -C filter/
+	make -C bufcat/
 
 clean:
 	make -C lib/ clean
 	make -C cat/ clean
 	make -C revwords/ clean
 	make -C filter/ clean
+	make -C bufcat/ clean
 

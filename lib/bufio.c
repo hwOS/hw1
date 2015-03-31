@@ -55,6 +55,12 @@ ssize_t buf_fill(int fd, struct buf_t *buf, size_t required) {
     return (ssize_t) buf->size;
 }
 
+static void move_data(struct buf_t *buf, size_t wrote_bytes, int fd) {
+    buf->size = buf->size - wrote_bytes;
+    memmove(buf->data, buf->data + wrote_bytes, buf->size);
+    fsync(fd);
+}
+
 ssize_t buf_flush(int fd, struct buf_t *buf, size_t required) {
 #ifdef DEBUG
     assert(buf != NULL);
@@ -67,18 +73,11 @@ ssize_t buf_flush(int fd, struct buf_t *buf, size_t required) {
         if (last_wrote_bytes == -1) {
             return -1;
         } else if (last_wrote_bytes == 0) {
-            buf->size = buf->size - wrote_bytes;
-            memmove(buf->data, buf->data + wrote_bytes, buf->size);
+            move_data(buf, wrote_bytes, fd);
             return (ssize_t) wrote_bytes;
         }
         wrote_bytes += (size_t) last_wrote_bytes;
     }
-    buf->size = buf->size - wrote_bytes;
-    memmove(buf->data, buf->data + wrote_bytes, buf->size);
+    move_data(buf, wrote_bytes, fd);
     return (ssize_t) wrote_bytes;
-}
-
-int main() {
-
-    return 0;
 }
