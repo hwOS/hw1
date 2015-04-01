@@ -5,5 +5,5 @@ FILES=main.c lib.c
 all: $(FILES)
 	$(CC) $^ -o $(TARGET)
 
-cleat:
+clean:
 	rm $(TARGET)

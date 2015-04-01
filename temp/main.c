@@ -3,16 +3,21 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
+#define ALLOC_SIZE 1024 * 1024 * 10
 
 int main() {
-    char buf[1000];
-    int fl = open("file", O_RDONLY);
-    if (fork()) {
-        read(fl, buf, 5);
-        printf("parent:%s\n", buf);
-    } else {
-        read(fl, buf, 5);
-        printf("child:%s\n", buf);
+    char *data;
+    int i = 0;
+    while (1) {
+        data = (char*) malloc(ALLOC_SIZE);
+        printf("%d\n", i++);
+        if (data == NULL) {
+            fprintf(stderr, "cannot allocate memory");
+            fflush(stdout);
+            exit(EXIT_FAILURE);
+        }
+        memset(data, 0xaa, ALLOC_SIZE);
     }
     return 0;
 }
