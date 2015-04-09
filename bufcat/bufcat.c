@@ -1,10 +1,10 @@
-#include "bufio.h"
+#include <bufio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #define MAX_BUF_LEN 4096
 
 int main() {
-    struct buf_t *buf = buf_new(MAX_BUF_LEN);
+    buf_t *buf = buf_new(MAX_BUF_LEN);
 #ifdef DEBUG
     assert(buf != NULL);
 #endif

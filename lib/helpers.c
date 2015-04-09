@@ -13,7 +13,7 @@
 ssize_t read_(int fd, void *buf, size_t count) {
     size_t read_bytes = 0;
     ssize_t last_read_bytes = 0;
-    char* buff = buf;
+    char* buff = (char*) buf;
     while (read_bytes < count) {
         last_read_bytes = read(fd, buff + read_bytes, count - read_bytes);
         if (last_read_bytes == -1) {
@@ -29,7 +29,7 @@ ssize_t read_(int fd, void *buf, size_t count) {
 ssize_t write_(int fd, const void *buf, size_t count) {
     size_t wrote_bytes = 0;
     ssize_t last_wrote_bytes = 0;
-    const char* buff = buf;
+    const char* buff = (const char*) buf;
     while (count > wrote_bytes) {
         last_wrote_bytes = write(fd, buff + wrote_bytes, count - wrote_bytes);
         if (last_wrote_bytes == -1) {
@@ -74,7 +74,7 @@ ssize_t read_until(int fd, void* buf, size_t count, char delimiter) {
     size_t i;
     ssize_t last_read_bytes = 0;
     size_t read_bytes = 0;
-    char* buff = buf;
+    char* buff = (char*) buf;
 
     while (read_bytes < count) {
         last_read_bytes = read(fd, buff + read_bytes, count - read_bytes);

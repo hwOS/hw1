@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../lib/helpers.h"
+#include <helpers.h>
 #define MAX_SIZE 4098
 
-/* source has to null-terminated string */
+/* source must null-terminated string */
 void reverse_word(char* source) {
     size_t cnt = strlen(source);
     size_t i;

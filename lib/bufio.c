@@ -9,10 +9,10 @@
     #define check_buf(buf)
 #endif
 
-struct buf_t *buf_new(size_t capacity) {
-    struct buf_t *res_buf = malloc(sizeof(struct buf_t));
+buf_t *buf_new(size_t capacity) {
+    buf_t *res_buf = (buf_t *) malloc(sizeof(buf_t));
     check_buf(res_buf);
-    res_buf->data = malloc(capacity);
+    res_buf->data = (char*) malloc(capacity);
 #ifdef DEBUG
     assert(capacity == 0 || res_buf->data != NULL);
 #endif
@@ -21,23 +21,23 @@ struct buf_t *buf_new(size_t capacity) {
     return res_buf;
 }
 
-void buf_free(struct buf_t *buf) {
+void buf_free(buf_t *buf) {
     check_buf(buf);
     free(buf->data);
     free(buf);
 }
 
-size_t buf_capacity(struct buf_t *buf) {
+size_t buf_capacity(buf_t *buf) {
     check_buf(buf);
     return buf->capacity;
 }
 
-size_t buf_size(struct buf_t *buf) {
+size_t buf_size(buf_t *buf) {
     check_buf(buf);
     return buf->size;
 }
 
-ssize_t buf_fill(int fd, struct buf_t *buf, size_t required) {
+ssize_t buf_fill(int fd, buf_t *buf, size_t required) {
 #ifdef DEBUG
     assert(buf != NULL);
     assert(buf->capacity - buf->size >= required);
@@ -55,13 +55,13 @@ ssize_t buf_fill(int fd, struct buf_t *buf, size_t required) {
     return (ssize_t) buf->size;
 }
 
-static void move_data(struct buf_t *buf, size_t wrote_bytes, int fd) {
+static void move_data(buf_t *buf, size_t wrote_bytes, int fd) {
     buf->size = buf->size - wrote_bytes;
     memmove(buf->data, buf->data + wrote_bytes, buf->size);
     fsync(fd);
 }
 
-ssize_t buf_flush(int fd, struct buf_t *buf, size_t required) {
+ssize_t buf_flush(int fd, buf_t *buf, size_t required) {
 #ifdef DEBUG
     assert(buf != NULL);
     assert(buf->size >= required);
