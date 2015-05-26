@@ -14,4 +14,12 @@ int spawn(const char * file, char * const argv []);
  */
 char* get_word(char* source, char delimiter);
 
+typedef struct {
+    const char* name;
+    const char* argv[];
+} execargs_t;
+
+execargs_t* construct_execargs(const char* name, const char* argv[]);
+int exec(execargs_t* args);
+
 #endif

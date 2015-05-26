@@ -119,3 +119,33 @@ int spawn(const char * file, char* const argv []) {
         _exit(EXIT_FAILURE);
     }
 }
+
+
+execargs_t* construct_execargs(const char* name, const char* argv[]) {
+    int len = 0;
+    for (; argv[len] != NULL; ++len);
+
+    size_t struct_size = sizeof(execargs_t) + sizeof(argv[0]) * (len + 1);
+    execargs_t* result = (execargs_t* ) malloc(struct_size);
+    result->name = name;
+    for (int i = 0; i <= len; ++i) { // <=, that copy last NULL element
+        result->argv[i] = argv[i];
+    }
+
+    return result;
+}
+
+int exec(execargs_t* args) {
+    pid_t cpid = fork();
+    if (cpid < 0) {
+        return -1;
+    }
+
+    if (cpid > 0) { // parent waits a child process
+        waitpid(cpid, NULL, 0); 
+    } else {
+        if (execvp(args->name, args->argv) < 0) {
+            exit(EXIT_FAILURE);
+        }
+    }
+}
