@@ -15,11 +15,12 @@ int spawn(const char * file, char * const argv []);
 char* get_word(char* source, char delimiter);
 
 typedef struct {
-    const char* name;
-    const char* argv[];
+    const char* const name;
+    char* const * argv;
 } execargs_t;
 
-execargs_t* construct_execargs(const char* name, const char* argv[]);
+execargs_t construct_execargs(const char* const name, char* const * argv);
+int runpiped(execargs_t** programs, size_t n); 
 int exec(execargs_t* args);
 
 #endif

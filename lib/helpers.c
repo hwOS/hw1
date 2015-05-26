@@ -121,17 +121,8 @@ int spawn(const char * file, char* const argv []) {
 }
 
 
-execargs_t* construct_execargs(const char* name, const char* argv[]) {
-    int len = 0;
-    for (; argv[len] != NULL; ++len);
-
-    size_t struct_size = sizeof(execargs_t) + sizeof(argv[0]) * (len + 1);
-    execargs_t* result = (execargs_t* ) malloc(struct_size);
-    result->name = name;
-    for (int i = 0; i <= len; ++i) { // <=, that copy last NULL element
-        result->argv[i] = argv[i];
-    }
-
+execargs_t construct_execargs(const char* const name, char* const * argv) {
+    execargs_t result = {name, argv};
     return result;
 }
 
@@ -142,10 +133,57 @@ int exec(execargs_t* args) {
     }
 
     if (cpid > 0) { // parent waits a child process
-        waitpid(cpid, NULL, 0); 
+        if (waitpid(cpid, NULL, 0) < 0) {
+            perror("exec: child");
+            return -1;
+        }
     } else {
-        if (execvp(args->name, args->argv) < 0) {
-            exit(EXIT_FAILURE);
+        execvp(args->name, args->argv);
+        perror("exec: child");
+        _exit(EXIT_FAILURE);
+    }
+    return 0;
+}
+
+int runpiped(execargs_t** programs, size_t n) {
+    int old_stdout = dup(STDOUT_FILENO);
+    int pipefd[2];// 0 - read
+
+    if (pipe(pipefd) < 0 ||
+        close(STDIN_FILENO) < 0 ||
+        close(STDOUT_FILENO) < 0 || 
+        dup2(pipefd[0], STDIN_FILENO) < 0 || 
+        dup2(pipefd[1], STDOUT_FILENO) < 0) 
+    {
+        perror("runpiped");
+        return -1;
+    }
+
+    for (size_t i = 0; i < n - 1; ++i) {
+        if (exec(programs[i]) < 0) {
+            return -1;
         }
     }
+
+    if (dup2(old_stdout, STDOUT_FILENO) < 0) {
+        perror("runpiped");
+        return -1;
+    }
+
+    char buf[100];
+    scanf("%s", buf);
+    printf("\n%s\n", buf);
+    return 0;
+
+    exec(programs[n - 1]);
+
+    if (close(old_stdout) < 0 || 
+        close(pipefd[0]) < 0 ||
+        close(pipefd[1]) < 0) 
+    {
+        perror("runpiped");
+        return -1;
+    }
+
+    return 0;
 }
