@@ -1,20 +1,19 @@
 CC=gcc
 CFLAGS=-std=c11 -pedantic -Wall -Wextra -Wno-unused-result -Wformat=2 \
--Wfloat-equal -Wconversion -Wlogical-op  -D_FORTIFY_SOURCE=2 -g -fPIC -c -DDEBUG
-LDFLAGS=-shared
+-Wfloat-equal -Wconversion -Wlogical-op -D_FORTIFY_SOURCE=2 -g -shared -fPIC -DDEBUG
 
 HELPERS=libhelpers.so
 BUFIO=libbufio.so
 
 TARGET=$(BUFIO) $(HELPERS)
 
-all: $(BUFIO) $(HELPERS) 
+all: $(TARGET)
 	
 $(BUFIO) : bufio.c bufio.h
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@
 
 $(HELPERS) : helpers.c helpers.h
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGET)

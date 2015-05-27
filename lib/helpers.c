@@ -98,22 +98,13 @@ int spawn(const char * file, char* const argv []) {
     pid_t child_pid = fork();
     if (child_pid == -1) {
         perror("helpers: spawn");
-        exit(EXIT_FAILURE);
+        return -1;
     }
     if (child_pid != 0) {
         int status;
         waitpid(child_pid, &status, WUNTRACED);
         return WEXITSTATUS(status);
     } else {
-        int dev_null = open("/dev/null", O_WRONLY);
-        while ((dup2(dev_null, STDERR_FILENO) == -1) && (errno == EINTR));
-        while ((dup2(dev_null, STDOUT_FILENO) == -1) && (errno == EINTR));
-
-        if (close(dev_null) == -1) {
-            perror("helpers: spawn: close");
-            _exit(EXIT_FAILURE);
-        }
-
         execvp(file, argv);
         perror("helpers: spawn");
         _exit(EXIT_FAILURE);
@@ -127,60 +118,46 @@ execargs_t construct_execargs(const char* const name, char* const * argv) {
 }
 
 int exec(execargs_t* args) {
-    pid_t cpid = fork();
-    if (cpid < 0) {
-        return -1;
-    }
-
-    if (cpid > 0) { // parent waits a child process
-        if (waitpid(cpid, NULL, 0) < 0) {
-            perror("exec: child");
-            return -1;
-        }
-    } else {
-        execvp(args->name, args->argv);
-        perror("exec: child");
-        _exit(EXIT_FAILURE);
-    }
-    return 0;
+    return spawn(args->name, args->argv);
 }
 
 int runpiped(execargs_t** programs, size_t n) {
     int old_stdout = dup(STDOUT_FILENO);
-    int pipefd[2];// 0 - read
-
-    if (pipe(pipefd) < 0 ||
-        close(STDIN_FILENO) < 0 ||
-        close(STDOUT_FILENO) < 0 || 
-        dup2(pipefd[0], STDIN_FILENO) < 0 || 
-        dup2(pipefd[1], STDOUT_FILENO) < 0) 
-    {
-        perror("runpiped");
-        return -1;
-    }
+    int old_stdin = dup(STDIN_FILENO);
+    int pipefd[2]; // 0 - read
 
     for (size_t i = 0; i < n - 1; ++i) {
+        if (pipe(pipefd) < 0 ||
+            dup2(pipefd[1], STDOUT_FILENO) < 0) 
+        {
+            perror("runpiped");
+            return -1;
+        }
+
         if (exec(programs[i]) < 0) {
+            return -1;
+        }
+
+        /*fprintf(stderr, "p[0] = %d, p[1] = %d, stdin = %d, stdout = %d\n", pipefd[0], pipefd[1], STDIN_FILENO, STDOUT_FILENO);*/
+        if (close(pipefd[1]) < 0 ||
+            dup2(pipefd[0], STDIN_FILENO) < 0 ||
+            close(pipefd[0]) < 0) 
+        {
+            perror("runpiped");
             return -1;
         }
     }
 
-    if (dup2(old_stdout, STDOUT_FILENO) < 0) {
+    if (dup2(old_stdout, STDOUT_FILENO) < 0 ||
+        close(old_stdout) < 0) {
         perror("runpiped");
         return -1;
     }
 
-    char buf[100];
-    scanf("%s", buf);
-    printf("\n%s\n", buf);
-    return 0;
-
     exec(programs[n - 1]);
 
-    if (close(old_stdout) < 0 || 
-        close(pipefd[0]) < 0 ||
-        close(pipefd[1]) < 0) 
-    {
+    if (dup2(old_stdin, STDIN_FILENO) < 0 ||
+        close(old_stdin) < 0) {
         perror("runpiped");
         return -1;
     }

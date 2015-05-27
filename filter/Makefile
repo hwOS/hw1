@@ -4,7 +4,7 @@ TARGET=filter
 LDFLAGS=-I../lib/ -I. -L../lib/ -Wl,-rpath=../lib/
 LIBS=-lhelpers
 
-$(TARGET): filter.c filter.h
+$(TARGET): filter.c
 	$(CC) $(LDFLAGS) $(CFLAGS) $< $(LIBS) -o $@
 
 clean:
