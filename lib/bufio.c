@@ -81,3 +81,7 @@ ssize_t buf_flush(int fd, buf_t *buf, size_t required) {
     move_data(buf, wrote_bytes, fd);
     return (ssize_t) wrote_bytes;
 }
+
+void buf_clear(buf_t *buf) {
+    buf->size = 0;
+}

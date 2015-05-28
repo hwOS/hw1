@@ -27,4 +27,6 @@ ssize_t buf_fill(int fd, buf_t *buf, size_t required);
  */
 ssize_t buf_flush(int fd, buf_t *buf, size_t required);
 
+void buf_clear(buf_t *buf);
+
 #endif

@@ -20,6 +20,7 @@ typedef struct {
 } execargs_t;
 
 execargs_t* construct_execargs(char* start, char* end);
+void destruct_execargs(execargs_t* execargs);
 int runpiped(execargs_t** programs, size_t n); 
 int exec(execargs_t* args);
 
