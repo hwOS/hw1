@@ -15,10 +15,13 @@
 #define TO_STR(tok) EXPAND_STR(tok)
 #define print_debug_info() perror(__FILE__": line "TO_STR(__LINE__))
 
+// restore previous handlers on signals sigint and sigchld
+#define restore_signals() sigaction(SIGCHLD, &old_sigchld, 0); sigaction(SIGINT, &old_sigint, 0);
+
 #ifdef DEBUG
-#  define print_debug_and_ret() print_debug_info(); return -1;
+#  define ret() restore_signals(); print_debug_info(); return -1;
 #else
-#  define print_debug_and_ret() return -1;
+#  define ret() restore_signals(); return -1;
 #endif
 
 ssize_t read_(int fd, void *buf, size_t count) {
@@ -132,7 +135,8 @@ int exec(execargs_t* args) {
     int cpid = fork();
 
     if (cpid < 0) {
-        print_debug_and_ret();
+        print_debug_info();
+        return -1;
     }
 
     if (cpid == 0) { // child process
@@ -140,14 +144,15 @@ int exec(execargs_t* args) {
 
         signal(SIGINT, SIG_DFL);
         if (execvp(args->name, args->argv) < 0) {
-            print_debug_and_ret();
+            print_debug_info();
+            return -1;
         }
     }
     return cpid;
 }
 
 static int* childs_pid;
-static size_t cur_child = 0;
+static size_t cur_child;
 static size_t cnt_childs;
 static int child_status;
 
@@ -169,13 +174,14 @@ void chld_handler(int signum, siginfo_t* info, void* ignore) {
         /*fprintf(stderr, "in sigchld kill before\n");*/
         for (size_t i = cur_child; i < cnt_childs; ++i) {
             /*fprintf(stderr, "kill %d\n", (int) childs_pid[i]);*/
-            if (kill(childs_pid[i], SIGINT) < 0) {
+            if (kill(childs_pid[i], SIGKILL) < 0) {
                 print_debug_info();
                 return;
             }
         }
         cur_child = cnt_childs;
         signal(SIGCHLD, SIG_IGN);
+        signal(SIGINT, SIG_IGN);
         /*fprintf(stderr, "in sigchld kill after\n");*/
     }
 }
@@ -184,6 +190,9 @@ int runpiped(execargs_t** programs, const size_t n) {
     /*fprintf(stderr, "sigchld = %d\n", SIGCHLD);*/
     /*fprintf(stderr, "sigint = %d\n", SIGINT);*/
     struct sigaction sa;
+    struct sigaction old_sigint;
+    struct sigaction old_sigchld;
+
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = chld_handler;
 
@@ -192,8 +201,9 @@ int runpiped(execargs_t** programs, const size_t n) {
     sigaddset(&sa.sa_mask, SIGINT);
     sigaddset(&sa.sa_mask, SIGCHLD);
 
-    if (sigaction(SIGCHLD, &sa, 0) != 0 || sigaction(SIGINT, &sa, 0) != 0) {
-        print_debug_and_ret();
+    if (sigaction(SIGCHLD, &sa, &old_sigchld) != 0 || sigaction(SIGINT, &sa, &old_sigint) != 0) {
+        print_debug_info();
+        return -1;
     }
 
     int old_stdout = dup(STDOUT_FILENO);
@@ -204,41 +214,42 @@ int runpiped(execargs_t** programs, const size_t n) {
     childs_pid = childs;
     cnt_childs = n;
     child_status = 0;
+    cur_child = 0;
 
     for (size_t i = 0; i < n - 1; ++i) {
         if (pipe(pipefd + 2 * i) < 0) {
-            print_debug_and_ret();
+            ret();
         }
 
         int out_fd = pipefd[2 * i + 1];
         if (fcntl(out_fd, F_SETFD, FD_CLOEXEC) == -1) {
-            print_debug_and_ret();
+            ret();
         }
 
         int in_fd = pipefd[2 * i];
         if (dup2(out_fd, STDOUT_FILENO) < 0) {
-            print_debug_and_ret();
+            ret();
         }
 
         childs[i] = exec(programs[i]);
         /*fprintf(stderr, "in_fd = %d; out_fd = %d; childs[i] = %d\n", in_fd, out_fd, childs[i]);*/
         if (childs[i] < 0) {
-            print_debug_and_ret();
+            ret();
         }
 
         if (dup2(in_fd, STDIN_FILENO) < 0) {
-            print_debug_and_ret();
+            ret();
         }
     }
 
     if (dup2(old_stdout, STDOUT_FILENO) < 0 || close(old_stdout) < 0) {
-        print_debug_and_ret();
+        ret();
     }
 
     childs[n - 1] = exec(programs[n - 1]);
 
     if (childs[n - 1] < 0 || dup2(old_stdin, STDIN_FILENO) < 0 || close(old_stdin) < 0) {
-        print_debug_and_ret();
+        ret();
     }
 
     /*fprintf(stderr, "before for\n");*/
@@ -249,10 +260,14 @@ int runpiped(execargs_t** programs, const size_t n) {
         if ((i < n - 1 && close(pipefd[2 * i + 1]) < 0) || 
            (i > 0 && close(pipefd[2 * i - 2]) < 0 ) || child_status != 0) 
         {
-            print_debug_and_ret();
+            ret();
         }
     }
-    /*fprintf(stderr, "runpiped terminated\n");*/
 
+    // restore previous handlers on signals sigint and sigchld
+    sigaction(SIGCHLD, &old_sigchld, 0); 
+    sigaction(SIGINT, &old_sigint, 0);
+
+    /*fprintf(stderr, "runpiped terminated\n");*/
     return 0;
 }
