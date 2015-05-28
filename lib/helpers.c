@@ -122,8 +122,40 @@ int spawn(const char * file, char* const argv []) {
     }
 }
 
-execargs_t construct_execargs(const char* const name, char* const * argv) {
-    execargs_t result = {name, argv};
+/*
+ * construct execargs from string containing name of program and its arguments
+ * string like: "./program arg1"
+ * return NULL if program not found or malloc return NULL
+ */
+execargs_t* construct_execargs(char* start, char* end) {
+    size_t count_args = 0;
+    char* prev_start = start;
+    
+    for (char cur_char = *start; start != end; ++start) {
+        for (cur_char = *start; start != end && cur_char == ' '; ++start);
+        count_args++;    
+        for (cur_char = *start; start != end && cur_char != ' '; ++start);
+        *start = 0;
+    } 
+
+    if (count_args == 0) {
+        return NULL;
+    }
+    execargs_t* result = (execargs_t*) malloc(sizeof(execargs_t) + sizeof(char*) * (count_args + 1));
+    if (result == NULL) {
+        return NULL;
+    }
+
+    start = prev_start;
+    int i = 0;
+    for (char cur_char = *start; start != end; ++start, ++i) {
+        for (cur_char = *start; start != end && cur_char == ' '; ++start);
+        result->argv[i] = start;
+        for (cur_char = *start; start != end && cur_char != ' '; ++start);
+    } 
+    result->argv[count_args] = NULL;
+    result->name = result->argv[0];
+
     return result;
 }
 
@@ -148,9 +180,11 @@ int exec(execargs_t* args) {
 }
 
 static int* childs_pid;
+static int* pipes;
 static size_t cur_child;
 static size_t cnt_childs;
 static int child_status;
+static size_t runned_childs;
 
 void chld_handler(int signum, siginfo_t* info, void* ignore) {
     /*fprintf(stderr, "signum = %d\n", signum);*/
@@ -203,6 +237,16 @@ static int return_state(program_state* state)
         print_debug_info();
         return -1;
     }
+
+    // ignores error during closing pipes and killing children
+    for (size_t i = 0; i < cnt_childs; ++i) {
+        close(pipes[i]);
+    }
+
+    for (size_t i = 0; i < runned_childs; ++i) {
+        kill(childs_pid[i], SIGKILL);
+        waitpid(childs_pid[i], NULL, 0);
+    }
     return 0;
 }
 
@@ -221,12 +265,9 @@ int runpiped(execargs_t** programs, const size_t n)
     sigaddset(&sa.sa_mask, SIGINT);
     sigaddset(&sa.sa_mask, SIGCHLD);
 
-    if (sigaction(SIGCHLD, &sa, &old_sigchld) != 0 || 
-        sigaction(SIGINT, &sa, &old_sigint) != 0) 
-    {
-        print_debug_info();
-        return -1;
-    }
+    // error in sigaction never happen
+    sigaction(SIGCHLD, &sa, &old_sigchld);
+    sigaction(SIGINT, &sa, &old_sigint);
 
     int old_stdout = dup(STDOUT_FILENO);
     int old_stdin = dup(STDIN_FILENO);
@@ -236,6 +277,7 @@ int runpiped(execargs_t** programs, const size_t n)
 
     int pipefd[2 * (n - 1)];
     int childs[n];
+    pipes = pipefd;
     childs_pid = childs;
     cnt_childs = n;
     child_status = 0;
@@ -257,6 +299,7 @@ int runpiped(execargs_t** programs, const size_t n)
         }
 
         childs[i] = exec(programs[i]);
+        runned_childs++;
         /*fprintf(stderr, "in_fd = %d; out_fd = %d; childs[i] = %d\n", in_fd, out_fd, childs[i]);*/
         // binds 0 descriptor of the next program with read end of the pipe
         if (childs[i] < 0 || dup2(in_fd, STDIN_FILENO) < 0) {
