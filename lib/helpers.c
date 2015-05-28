@@ -15,13 +15,10 @@
 #define TO_STR(tok) EXPAND_STR(tok)
 #define print_debug_info() perror(__FILE__": line "TO_STR(__LINE__))
 
-// restore previous handlers on signals sigint and sigchld
-#define restore_signals() sigaction(SIGCHLD, &old_sigchld, 0); sigaction(SIGINT, &old_sigint, 0);
-
 #ifdef DEBUG
-#  define ret() restore_signals(); print_debug_info(); return -1;
+#  define ret() return_state(&old_state); print_debug_info(); return -1;
 #else
-#  define ret() restore_signals(); return -1;
+#  define ret() return_state(&old_state); return -1;
 #endif
 
 ssize_t read_(int fd, void *buf, size_t count) {
@@ -125,7 +122,6 @@ int spawn(const char * file, char* const argv []) {
     }
 }
 
-
 execargs_t construct_execargs(const char* const name, char* const * argv) {
     execargs_t result = {name, argv};
     return result;
@@ -173,7 +169,7 @@ void chld_handler(int signum, siginfo_t* info, void* ignore) {
     } else { // SIGCHLD or SIGINT
         /*fprintf(stderr, "in sigchld kill before\n");*/
         for (size_t i = cur_child; i < cnt_childs; ++i) {
-            /*fprintf(stderr, "kill %d\n", (int) childs_pid[i]);*/
+            fprintf(stderr, "kill %d\n", (int) childs_pid[i]);
             if (kill(childs_pid[i], SIGKILL) < 0) {
                 print_debug_info();
                 return;
@@ -186,13 +182,37 @@ void chld_handler(int signum, siginfo_t* info, void* ignore) {
     }
 }
 
-int runpiped(execargs_t** programs, const size_t n) {
+typedef struct {
+    struct sigaction* old_sigint;
+    struct sigaction* old_sigchld;
+    int old_stdin;
+    int old_stdout;
+} program_state;
+
+static int return_state(program_state* state) 
+{
+    if (sigaction(SIGCHLD, state->old_sigchld, 0) != 0 ||
+        sigaction(SIGINT, state->old_sigint, 0) != 0 || 
+
+        dup2(state->old_stdin, STDIN_FILENO) < 0 || 
+        close(state->old_stdin) < 0 ||
+
+        dup2(state->old_stdout, STDOUT_FILENO) < 0 || 
+        close(state->old_stdout) < 0) 
+    {
+        print_debug_info();
+        return -1;
+    }
+    return 0;
+}
+
+int runpiped(execargs_t** programs, const size_t n) 
+{
     /*fprintf(stderr, "sigchld = %d\n", SIGCHLD);*/
     /*fprintf(stderr, "sigint = %d\n", SIGINT);*/
     struct sigaction sa;
     struct sigaction old_sigint;
     struct sigaction old_sigchld;
-
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = chld_handler;
 
@@ -201,13 +221,18 @@ int runpiped(execargs_t** programs, const size_t n) {
     sigaddset(&sa.sa_mask, SIGINT);
     sigaddset(&sa.sa_mask, SIGCHLD);
 
-    if (sigaction(SIGCHLD, &sa, &old_sigchld) != 0 || sigaction(SIGINT, &sa, &old_sigint) != 0) {
+    if (sigaction(SIGCHLD, &sa, &old_sigchld) != 0 || 
+        sigaction(SIGINT, &sa, &old_sigint) != 0) 
+    {
         print_debug_info();
         return -1;
     }
 
     int old_stdout = dup(STDOUT_FILENO);
     int old_stdin = dup(STDIN_FILENO);
+    // if error occured or before normal terminating
+    // program state will be restored to old_state
+    program_state old_state = {&old_sigint, &old_sigchld, old_stdin, old_stdout};
 
     int pipefd[2 * (n - 1)];
     int childs[n];
@@ -222,51 +247,52 @@ int runpiped(execargs_t** programs, const size_t n) {
         }
 
         int out_fd = pipefd[2 * i + 1];
-        if (fcntl(out_fd, F_SETFD, FD_CLOEXEC) == -1) {
-            ret();
-        }
-
         int in_fd = pipefd[2 * i];
-        if (dup2(out_fd, STDOUT_FILENO) < 0) {
+        
+        // write end of the pipe will be closed before execvp
+        if (fcntl(out_fd, F_SETFD, FD_CLOEXEC) == -1 || 
+            dup2(out_fd, STDOUT_FILENO) < 0) 
+        {
             ret();
         }
 
         childs[i] = exec(programs[i]);
         /*fprintf(stderr, "in_fd = %d; out_fd = %d; childs[i] = %d\n", in_fd, out_fd, childs[i]);*/
-        if (childs[i] < 0) {
-            ret();
-        }
-
-        if (dup2(in_fd, STDIN_FILENO) < 0) {
+        // binds 0 descriptor of the next program with read end of the pipe
+        if (childs[i] < 0 || dup2(in_fd, STDIN_FILENO) < 0) {
             ret();
         }
     }
 
+    // restore STDOUT descriptor to normal stdout for invoking the last program
     if (dup2(old_stdout, STDOUT_FILENO) < 0 || close(old_stdout) < 0) {
         ret();
     }
 
     childs[n - 1] = exec(programs[n - 1]);
 
-    if (childs[n - 1] < 0 || dup2(old_stdin, STDIN_FILENO) < 0 || close(old_stdin) < 0) {
+    if (childs[n - 1] < 0) {
         ret();
     }
 
+    // waiting childrens and close write end of the particular pipe to send EOF to read end
+    // and close read end if the program already terminated
     /*fprintf(stderr, "before for\n");*/
     for (size_t i = 0; i < n; ++i) {
         /*fprintf(stderr, "out_fd = %d; in_fd = %d; childs[i] = %d\n", pipefd[2 * i + 1], pipefd[2 * i], childs[i]);*/
         waitpid(childs[i], NULL, 0);
 
         if ((i < n - 1 && close(pipefd[2 * i + 1]) < 0) || 
-           (i > 0 && close(pipefd[2 * i - 2]) < 0 ) || child_status != 0) 
+           (i > 0 && close(pipefd[2 * i - 2]) < 0 ) || 
+           child_status != 0) 
         {
             ret();
         }
     }
 
-    // restore previous handlers on signals sigint and sigchld
-    sigaction(SIGCHLD, &old_sigchld, 0); 
-    sigaction(SIGINT, &old_sigint, 0);
+    if (return_state(&old_state) < 0) {
+        return -1;
+    }
 
     /*fprintf(stderr, "runpiped terminated\n");*/
     return 0;
