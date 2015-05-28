@@ -9,18 +9,15 @@
 /*int exec(execargs_t* args);*/
 
 void test() {
-    char* const argv1[] = {"find", "/", NULL};
-    char* const argv2[] = {"grep", "\\.c", NULL};
-    char* const argv3[] = {"head", "-n 10000", NULL};
-
-    execargs_t program1 = construct_execargs("find", argv1);
-    execargs_t program2 = construct_execargs("grep", argv2);
-    execargs_t program3 = construct_execargs("head", argv3);
+    char str[] = "find / | grep \\.c | head -n 100";
+    execargs_t* program1 = construct_execargs(str, str + 8);
+    execargs_t* program2 = construct_execargs(str + 9, str + 20);
+    execargs_t* program3 = construct_execargs(str + 21, str + 33);
 
     execargs_t* programs[3] = {
-        &program1,
-        &program2,
-        &program3
+        program1,
+        program2,
+        program3
     };
 
     runpiped(programs, 3); 

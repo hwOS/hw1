@@ -131,11 +131,11 @@ execargs_t* construct_execargs(char* start, char* end) {
     size_t count_args = 0;
     char* prev_start = start;
     
-    for (char cur_char = *start; start != end; ++start) {
+    for (char cur_char = *start; start < end; ++start) {
         for (cur_char = *start; start != end && cur_char == ' '; ++start);
         count_args++;    
-        for (cur_char = *start; start != end && cur_char != ' '; ++start);
-        *start = 0;
+        for (cur_char = *start; start != end && *start != ' '; ++start);
+        *(start++) = 0;
     } 
 
     if (count_args == 0) {
@@ -148,10 +148,10 @@ execargs_t* construct_execargs(char* start, char* end) {
 
     start = prev_start;
     int i = 0;
-    for (char cur_char = *start; start != end; ++start, ++i) {
-        for (cur_char = *start; start != end && cur_char == ' '; ++start);
+    for (; start < end; ++start, ++i) {
+        for (;start != end && *start == ' '; ++start);
         result->argv[i] = start;
-        for (cur_char = *start; start != end && cur_char != ' '; ++start);
+        for (; start != end && *start != ' ' && *start != 0; ++start);
     } 
     result->argv[count_args] = NULL;
     result->name = result->argv[0];
