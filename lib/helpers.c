@@ -15,13 +15,13 @@
 
 #define EXPAND_STR(tok) #tok
 #define TO_STR(tok) EXPAND_STR(tok)
-#define print_debug_info() perror(__FILE__": line "TO_STR(__LINE__))
-
 #ifdef DEBUG
-#  define ret() return_state(); kill_childs(); print_debug_info(); return -1;
+#  define print_debug_info() perror(__FILE__": line "TO_STR(__LINE__))
 #else
-#  define ret() return_state(); kill_childs(); return -1;
+#  define print_debug_info() 
 #endif
+
+#define ret() return_state(); kill_childs(); print_debug_info(); return -1;
 
 ssize_t read_(int fd, void *buf, size_t count) {
     size_t read_bytes = 0;
@@ -175,10 +175,11 @@ int exec(execargs_t* args) {
     }
 
     if (cpid == 0) { // child process
+        /*fprintf(stderr, "\nfrom child: name=%s; argv[0]=%s; argv[1]=%s\n", args->name, args->argv[0], args->argv[1]);*/
         signal(SIGINT, SIG_DFL);
         if (execvp(args->name, args->argv) < 0) {
             print_debug_info();
-            return -1;
+            _exit(EXIT_FAILURE);
         }
     }
 
@@ -191,12 +192,14 @@ int exec(execargs_t* args) {
 
 static int* childs_pid;
 static size_t cnt_childs;
+static size_t ran_childs;
 static struct sigaction old_sigint;
 static int old_stdin;
 static int old_stdout;
 
 static void kill_childs() {
-    for (size_t i = 0; i < cnt_childs; ++i) {
+    /*fprintf(stderr, "ran_child: %d\n", ran_childs);*/
+    for (size_t i = 0; i < ran_childs; ++i) {
         // ignore errors occured during kill
         /*fprintf(stderr, "kill %d\n", (int) childs_pid[i]);*/
         kill(childs_pid[i], SIGKILL);
@@ -219,6 +222,7 @@ void chld_handler(int signum) {
 }
 
 static void return_state() {
+    /*fprintf(stderr, "return state %d\n", getpid());*/
     sigaction(SIGINT, &old_sigint, 0);
 
     dup2(old_stdin, STDIN_FILENO);
@@ -246,6 +250,7 @@ int runpiped(execargs_t** programs, const size_t n)
     int childs[n];
     childs_pid = childs;
     cnt_childs = n;
+    ran_childs= 0;
 
     for (size_t i = 0; i < n - 1; ++i) {
         if (pipe2(pipefd, O_CLOEXEC) < 0) {
@@ -265,6 +270,7 @@ int runpiped(execargs_t** programs, const size_t n)
         if (childs_pid[i] < 0 || dup2(in_fd, STDIN_FILENO) < 0 || close(in_fd) < 0) {
             ret();
         }
+        ran_childs++;
     }
 
     // restore STDOUT descriptor to normal stdout for invoking the last program
@@ -273,10 +279,11 @@ int runpiped(execargs_t** programs, const size_t n)
     }
 
     childs_pid[n - 1] = exec(programs[n - 1]);
+
     if (childs_pid[n - 1] < 0 || close(STDIN_FILENO) < 0) {
         ret();
     }
-
+    ran_childs++;
 
     for (size_t i = 0; i < n; ++i) {
         int status;
