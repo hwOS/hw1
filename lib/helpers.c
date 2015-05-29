@@ -181,7 +181,11 @@ int exec(execargs_t* args) {
             return -1;
         }
     }
+
     /*fprintf(stderr, "child: %s; pid: %d\n", args->name, cpid);*/
+    /*for (int i = 0; args->argv[i] != NULL; ++i) {*/
+        /*fprintf(stderr, "argv[%d] = %s\n", i, args->argv[i]);*/
+    /*}*/
     return cpid;
 }
 
@@ -190,6 +194,15 @@ static size_t cnt_childs;
 static struct sigaction old_sigint;
 static int old_stdin;
 static int old_stdout;
+
+static void kill_childs() {
+    for (size_t i = 0; i < cnt_childs; ++i) {
+        // ignore errors occured during kill
+        /*fprintf(stderr, "kill %d\n", (int) childs_pid[i]);*/
+        kill(childs_pid[i], SIGKILL);
+        waitpid(childs_pid[i], NULL, 0);
+    }
+}
 
 void chld_handler(int signum) {
     signum = 10;
@@ -200,11 +213,7 @@ void chld_handler(int signum) {
         /*fprintf(stderr, "child_pid[%d] = %d\n", (int) i, childs_pid[i]);*/
     /*}*/
     /*fprintf(stderr, "in sigchld kill before\n");*/
-    for (size_t i = 0; i < cnt_childs; ++i) {
-        /*fprintf(stderr, "kill %d\n", (int) childs_pid[i]);*/
-        kill(childs_pid[i], SIGKILL);
-        waitpid(childs_pid[i], NULL, 0);
-    }
+    kill_childs();
     signal(SIGINT, SIG_IGN);
     /*fprintf(stderr, "in sigchld kill after\n");*/
 }
@@ -217,14 +226,6 @@ static void return_state() {
 
     dup2(old_stdout, STDOUT_FILENO);
     close(old_stdout);
-}
-
-static void kill_childs() {
-    for (size_t i = 0; i < cnt_childs; ++i) {
-        // ignore errors occured during kill
-        kill(childs_pid[i], SIGKILL);
-        waitpid(childs_pid[i], NULL, 0);
-    }
 }
 
 int runpiped(execargs_t** programs, const size_t n) 
@@ -253,15 +254,15 @@ int runpiped(execargs_t** programs, const size_t n)
 
         int out_fd = pipefd[1];
         int in_fd = pipefd[0];
+
         
-        if (dup2(out_fd, STDOUT_FILENO) < 0 || 
-            close(out_fd) < 0 || 
+        if (dup2(out_fd, STDOUT_FILENO) < 0 || close(out_fd) < 0) {
+            ret();
+        }
 
-            exec(programs[i]) < 0 || 
+        childs_pid[i] = exec(programs[i]);
 
-            dup2(in_fd, STDIN_FILENO) < 0 ||
-            close(in_fd) < 0) 
-        {
+        if (childs_pid[i] < 0 || dup2(in_fd, STDIN_FILENO) < 0 || close(in_fd) < 0) {
             ret();
         }
     }
@@ -271,7 +272,8 @@ int runpiped(execargs_t** programs, const size_t n)
         ret();
     }
 
-    if (exec(programs[n - 1]) < 0 || close(STDIN_FILENO) < 0) {
+    childs_pid[n - 1] = exec(programs[n - 1]);
+    if (childs_pid[n - 1] < 0 || close(STDIN_FILENO) < 0) {
         ret();
     }
 
@@ -280,6 +282,7 @@ int runpiped(execargs_t** programs, const size_t n)
         int status;
         wait(&status);
         /*fprintf(stderr, "terminated child %d\n", wait(&status));*/
+        /*perror("term");*/
     }
 
     return_state();

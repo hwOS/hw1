@@ -11,27 +11,6 @@
 const int MAX_PIPELINE = 65536;
 const int MAX_PROGRAMS = 65536;
 
-void test() {
-    char str[] = "find / | grep \\.c | head -n 100";
-    execargs_t* program1 = construct_execargs(str, str + 8);
-    execargs_t* program2 = construct_execargs(str + 9, str + 20);
-    execargs_t* program3 = construct_execargs(str + 21, str + 33);
-
-    execargs_t* programs[3] = {
-        program1,
-        program2,
-        program3
-    };
-
-    runpiped(programs, 3); 
-    fprintf(stderr, "after runpiped");
-
-    int x;
-    scanf("%d", &x);
-    printf("x = %d", x);
-}
-
-
 int find_lf(buf_t* buf, size_t old_size) {
     for (size_t i = old_size; i < buf_size(buf); ++i) {
         if (buf->data[i] == '\n') {
@@ -42,6 +21,7 @@ int find_lf(buf_t* buf, size_t old_size) {
 }
 
 void handler(int signum) {
+   fsync(STDOUT_FILENO);
    write(STDOUT_FILENO, "\n$ ", 3); 
 }
 
@@ -58,6 +38,7 @@ int main() {
     buf_t *buf = buf_new(MAX_PIPELINE);
     execargs_t* programs[MAX_PROGRAMS];
     while (1) {
+        fsync(STDOUT_FILENO);
         write(STDOUT_FILENO, "\n$ ", 3);
         size_t lf_pos = -1;
         buf_clear(buf);
@@ -70,6 +51,8 @@ int main() {
             if (lf_pos > 0) break;
         } 
 
+        buf->data[lf_pos + 1] = 0;
+        /*printf("str = %s; strlen = %d; lf_pos = %d\n", buf->data, strlen(buf->data), lf_pos);*/
         char* start = buf->data; 
         int cnt_programs = 0;
         while (start < buf->data + lf_pos) {
@@ -84,7 +67,7 @@ int main() {
         /*for (int i = 0; i < cnt_programs; ++i) {*/
             /*printf("#%d: name: %s\n", i, programs[i]->name);*/
             /*for (int j = 0; programs[i]->argv[j] != NULL; ++j) {*/
-                /*printf("--argv[%d]: %s\n", j, programs[i]->argv[j]);*/
+                /*printf("--argv[%d]: %s, len = %d\n", j, programs[i]->argv[j], strlen(programs[i]->argv[j]));*/
             /*}*/
         /*}*/
         runpiped(programs, cnt_programs);
