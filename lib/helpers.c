@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <unistd.h>
 #define MAX_WORD_SIZE 4098
+#define close2(arg) if (arg != STDIN_FILENO && arg != STDOUT_FILENO) close(arg)
 
 #define EXPAND_STR(tok) #tok
 #define TO_STR(tok) EXPAND_STR(tok)
@@ -166,7 +167,7 @@ void destruct_execargs(execargs_t* execargs) {
     free(execargs);
 }
 
-int exec(execargs_t* args) {
+int exec(execargs_t* args, int _stdin, int _stdout) {
     int cpid = fork();
 
     if (cpid < 0) {
@@ -176,7 +177,23 @@ int exec(execargs_t* args) {
 
     if (cpid == 0) { // child process
         /*fprintf(stderr, "\nfrom child: name=%s; argv[0]=%s; argv[1]=%s\n", args->name, args->argv[0], args->argv[1]);*/
-        signal(SIGINT, SIG_DFL);
+        if (dup2(_stdin, STDIN_FILENO) < 0) {
+            print_debug_info();
+            return -1;
+        }
+
+        if (dup2(_stdout, STDOUT_FILENO) < 0) {
+            print_debug_info();
+            return -1;
+        }
+
+        struct sigaction sa;
+        sa.sa_handler = SIG_DFL;
+        sigemptyset(&sa.sa_mask);
+
+        // error in sigaction never happened
+        sigaction(SIGINT, &sa, NULL);
+
         if (execvp(args->name, args->argv) < 0) {
             print_debug_info();
             _exit(EXIT_FAILURE);
@@ -194,8 +211,6 @@ static int* childs_pid;
 static size_t cnt_childs;
 static size_t ran_childs;
 static struct sigaction old_sigint;
-static int old_stdin;
-static int old_stdout;
 
 static void kill_childs() {
     /*fprintf(stderr, "ran_child: %d\n", ran_childs);*/
@@ -217,19 +232,19 @@ void chld_handler(int signum) {
     /*}*/
     /*fprintf(stderr, "in sigchld kill before\n");*/
     kill_childs();
-    signal(SIGINT, SIG_IGN);
+
+    struct sigaction sa;
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+
+    // error in sigaction never happened
+    sigaction(SIGINT, &sa, NULL);
     /*fprintf(stderr, "in sigchld kill after\n");*/
 }
 
 static void return_state() {
     /*fprintf(stderr, "return state %d\n", getpid());*/
     sigaction(SIGINT, &old_sigint, 0);
-
-    dup2(old_stdin, STDIN_FILENO);
-    close(old_stdin);
-
-    dup2(old_stdout, STDOUT_FILENO);
-    close(old_stdout);
 }
 
 int runpiped(execargs_t** programs, const size_t n) 
@@ -243,47 +258,37 @@ int runpiped(execargs_t** programs, const size_t n)
     // error in sigaction never happened
     sigaction(SIGINT, &sa, &old_sigint);
 
-    old_stdout = dup(STDOUT_FILENO);
-    old_stdin = dup(STDIN_FILENO);
-
     int pipefd[2];
     int childs[n];
     childs_pid = childs;
     cnt_childs = n;
     ran_childs= 0;
 
-    for (size_t i = 0; i < n - 1; ++i) {
-        if (pipe2(pipefd, O_CLOEXEC) < 0) {
-            ret();
+    int in_fd = STDIN_FILENO;
+    for (size_t i = 0; i < n; ++i) {
+        int out_fd;
+
+        if (i < n - 1) {
+            if (pipe2(pipefd, O_CLOEXEC) < 0) {
+                ret();
+            }
+
+            out_fd = pipefd[1];
+        } else {
+            out_fd = STDOUT_FILENO;
         }
-
-        int out_fd = pipefd[1];
-        int in_fd = pipefd[0];
-
         
-        if (dup2(out_fd, STDOUT_FILENO) < 0 || close(out_fd) < 0) {
+        childs_pid[i] = exec(programs[i], in_fd, out_fd);
+        if (childs_pid[i] < 0) {
             ret();
         }
 
-        childs_pid[i] = exec(programs[i]);
+        close2(out_fd);
+        close2(in_fd);
+        in_fd = pipefd[0];
 
-        if (childs_pid[i] < 0 || dup2(in_fd, STDIN_FILENO) < 0 || close(in_fd) < 0) {
-            ret();
-        }
         ran_childs++;
     }
-
-    // restore STDOUT descriptor to normal stdout for invoking the last program
-    if (dup2(old_stdout, STDOUT_FILENO) < 0 || close(old_stdout) < 0) {
-        ret();
-    }
-
-    childs_pid[n - 1] = exec(programs[n - 1]);
-
-    if (childs_pid[n - 1] < 0 || close(STDIN_FILENO) < 0) {
-        ret();
-    }
-    ran_childs++;
 
     for (size_t i = 0; i < n; ++i) {
         int status;

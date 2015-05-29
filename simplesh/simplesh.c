@@ -4,6 +4,8 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
 
 /*execargs_t construct_execargs(const char* const name, char* const * argv);*/
 /*int runpiped(execargs_t** programs, size_t n); */
@@ -44,7 +46,7 @@ int main() {
         buf_clear(buf);
         while (1) {
             size_t prev_size = buf_size(buf);
-            if (buf_fill(STDIN_FILENO, buf, prev_size + 1) == 0) {
+            if (buf_fill(STDIN_FILENO, buf, prev_size + 1) <= 0) {
                 return 0;
             }
             lf_pos = find_lf(buf, prev_size);

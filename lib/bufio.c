@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #ifdef DEBUG
     #define check_buf(buf) assert(buf != NULL);
 #else
@@ -48,6 +49,7 @@ ssize_t buf_fill(int fd, buf_t *buf, size_t required) {
         if (last_read_bytes == 0) {
             return (ssize_t) buf->size;
         } else if (last_read_bytes == -1) {
+            if (errno == EINTR) continue;
             return -1;
         }
         buf->size += (size_t) last_read_bytes;
