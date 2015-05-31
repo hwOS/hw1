@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "helpers.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -176,7 +175,6 @@ int exec(execargs_t* args, int _stdin, int _stdout) {
     }
 
     if (cpid == 0) { // child process
-        /*fprintf(stderr, "\nfrom child: name=%s; argv[0]=%s; argv[1]=%s\n", args->name, args->argv[0], args->argv[1]);*/
         if (dup2(_stdin, STDIN_FILENO) < 0) {
             print_debug_info();
             return -1;
@@ -188,7 +186,7 @@ int exec(execargs_t* args, int _stdin, int _stdout) {
         }
 
         struct sigaction sa;
-        sa.sa_handler = SIG_DFL;
+        sa.sa_handler = SIG_IGN;
         sigemptyset(&sa.sa_mask);
 
         // error in sigaction never happened
@@ -200,10 +198,6 @@ int exec(execargs_t* args, int _stdin, int _stdout) {
         }
     }
 
-    /*fprintf(stderr, "child: %s; pid: %d\n", args->name, cpid);*/
-    /*for (int i = 0; args->argv[i] != NULL; ++i) {*/
-        /*fprintf(stderr, "argv[%d] = %s\n", i, args->argv[i]);*/
-    /*}*/
     return cpid;
 }
 
@@ -213,24 +207,14 @@ static size_t ran_childs;
 static struct sigaction old_sigint;
 
 static void kill_childs() {
-    /*fprintf(stderr, "ran_child: %d\n", ran_childs);*/
     for (size_t i = 0; i < ran_childs; ++i) {
         // ignore errors occured during kill
-        /*fprintf(stderr, "kill %d\n", (int) childs_pid[i]);*/
         kill(childs_pid[i], SIGKILL);
         waitpid(childs_pid[i], NULL, 0);
     }
 }
 
-void chld_handler(int signum) {
-    signum = 10;
-    /*fprintf(stderr, "signum = %d\n", signum);*/
-    /*fprintf(stderr, "pid: %d\n", getpid());*/
-    /*fprintf(stderr, "pid from: %d\n", info->si_pid);*/
-    /*for (size_t i = 0; i < cnt_childs; ++i) {*/
-        /*fprintf(stderr, "child_pid[%d] = %d\n", (int) i, childs_pid[i]);*/
-    /*}*/
-    /*fprintf(stderr, "in sigchld kill before\n");*/
+void sig_handler(int signum) {
     kill_childs();
 
     struct sigaction sa;
@@ -239,20 +223,16 @@ void chld_handler(int signum) {
 
     // error in sigaction never happened
     sigaction(SIGINT, &sa, NULL);
-    /*fprintf(stderr, "in sigchld kill after\n");*/
 }
 
 static void return_state() {
-    /*fprintf(stderr, "return state %d\n", getpid());*/
     sigaction(SIGINT, &old_sigint, 0);
 }
 
 int runpiped(execargs_t** programs, const size_t n) 
 {
-    /*fprintf(stderr, "sigchld = %d\n", SIGCHLD);*/
-    /*fprintf(stderr, "sigint = %d\n", SIGINT);*/
     struct sigaction sa;
-    sa.sa_handler = chld_handler;
+    sa.sa_handler = sig_handler;
     sigemptyset(&sa.sa_mask);
 
     // error in sigaction never happened
@@ -293,12 +273,9 @@ int runpiped(execargs_t** programs, const size_t n)
     for (size_t i = 0; i < n; ++i) {
         int status;
         wait(&status);
-        /*fprintf(stderr, "terminated child %d\n", wait(&status));*/
-        /*perror("term");*/
     }
 
     return_state();
 
-    /*fprintf(stderr, "runpiped terminated\n");*/
     return 0;
 }
