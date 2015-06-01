@@ -5,6 +5,7 @@ all:
 	make -C filter/
 	make -C simplesh/
 	make -C bufcat/
+	make -C filesender/
 
 
 clean:
@@ -14,4 +15,5 @@ clean:
 	make -C filter/ clean
 	make -C bufcat/ clean
 	make -C simplesh/ clean
+	make -C filesender/ clean
 

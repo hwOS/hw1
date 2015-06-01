@@ -49,7 +49,7 @@ ssize_t buf_fill(int fd, buf_t *buf, size_t required) {
         if (last_read_bytes == 0) {
             return (ssize_t) buf->size;
         } else if (last_read_bytes == -1) {
-            if (errno == EINTR) continue;
+            if (errno == EINTR || errno == EAGAIN) continue;
             return -1;
         }
         buf->size += (size_t) last_read_bytes;
@@ -73,6 +73,7 @@ ssize_t buf_flush(int fd, buf_t *buf, size_t required) {
     while (wrote_bytes < required) {
         last_wrote_bytes = write(fd, buf->data + wrote_bytes, buf->size - wrote_bytes);
         if (last_wrote_bytes == -1) {
+            if (errno == EAGAIN || errno == EINTR) continue;
             return -1;
         } else if (last_wrote_bytes == 0) {
             move_data(buf, wrote_bytes, fd);
