@@ -36,6 +36,10 @@ void handler(int signum) {
 }
 
 int main(int argc, char* argv[]) {
+    if (argc < 3) {
+        fprintf(stdout, "usage: ./forkint port1 file_name");
+        return 0;
+    }
     struct sigaction sa;
     sa.sa_handler = handler;
     sigaction(SIGCHLD, &sa, NULL);
