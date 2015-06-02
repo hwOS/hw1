@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-std=c11 -pedantic -Wall -Wextra -Wno-unused-result -Wformat=2 \
--Wfloat-equal -Wconversion -Wlogical-op -D_FORTIFY_SOURCE=2 -g -shared -fPIC -DDEBUG -D_POSIX_C_SOURCE=199309L 
+-Wfloat-equal -Wconversion -Wlogical-op -D_FORTIFY_SOURCE=2 -g -shared -fPIC -DDEBUG -D_POSIX_C_SOURCE=199309L -Wno-unused-parameter
 
 HELPERS=libhelpers.so
 BUFIO=libbufio.so
