@@ -101,8 +101,7 @@ int main(int argc, char* argv[]) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
-    check(getaddrinfo(NULL, port1, &hints, &result));
+    check(getaddrinfo("localhost", port1, &hints, &result));
     int list_socket1 = get_listenning_socket(result);
 
     check(getaddrinfo(NULL, port2, &hints, &result));
