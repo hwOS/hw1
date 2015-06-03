@@ -23,7 +23,7 @@
                         exit(EXIT_FAILURE); \
                     }
 
-const int BUF_SIZE = 10;
+const int BUF_SIZE = 4096;
 const int BACKLOG = 50;
 
 void handler(int signum) {
@@ -100,7 +100,6 @@ int main(int argc, char* argv[]) {
                 res_fill = buf_fill(target_fd, buf, prev_size + 1);
                 check(res_fill);
                 check(buf_flush(client_socket, buf, 1));
-                sleep(1);
             } while (res_fill > prev_size);
             exit(EXIT_SUCCESS);
         }
