@@ -23,15 +23,14 @@
                         exit(EXIT_FAILURE); \
                     }
 
-const int BUF_SIZE = 4096;
+const int BUF_SIZE = 10;
 const int BACKLOG = 50;
 
 void handler(int signum) {
     int status;
     check(wait(&status));
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        epr("child was been terminated abnormally");
-        exit(EXIT_FAILURE);
+        epr("child was been terminated abnormally\n");
     }
 }
 
@@ -100,7 +99,8 @@ int main(int argc, char* argv[]) {
                 prev_size = buf_size(buf);
                 res_fill = buf_fill(target_fd, buf, prev_size + 1);
                 check(res_fill);
-                check(buf_flush(client_socket, buf, buf_size(buf)));
+                check(buf_flush(client_socket, buf, 1));
+                sleep(1);
             } while (res_fill > prev_size);
             exit(EXIT_SUCCESS);
         }

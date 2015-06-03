@@ -78,7 +78,8 @@ void forward_messages(int first_client, int second_client) {
             prev_size = buf_size(buf);
             res_fill = buf_fill(first_client, buf, prev_size + 1); 
             check(res_fill);
-            check(buf_flush(second_client, buf, buf_size(buf)));
+            if (buf_size(buf) > 0)
+                check(buf_flush(second_client, buf, 1));
         } while (res_fill > prev_size);
         exit(EXIT_SUCCESS);
     }
