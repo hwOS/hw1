@@ -90,7 +90,7 @@ void buf_clear(buf_t *buf) {
 }
 
 int buf_empty(buf_t *buf) {
-    return buf->size;
+    return buf->size == 0;
 }
 
 int buf_full(buf_t *buf) {

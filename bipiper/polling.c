@@ -97,8 +97,8 @@ void close_and_swap(int id, int id2) {
     }
     int min_id = id < id2 ? id : id2;
     int max_id = id > id2 ? id : id2;
-    close(fds[min_id].fd);
-    close(fds[max_id].fd);
+    close(abs(fds[min_id].fd));
+    close(abs(fds[max_id].fd));
     fds[min_id].revents = 0;
     fds[max_id].revents = 0;
     swap_pollfd(&fds[min_id], &fds[cnt_fds - 2]);
@@ -131,11 +131,10 @@ void event_on_accept_socket(int id) {
     }
 }
 
-void sock_events(size_t *i) {
-    size_t id = *i;
+int sock_events(size_t id) {
     if (id < 2) {
         event_on_accept_socket(id);
-        return;
+        return 0;
     }
     buf_t* r_buf = buffs[BUF_ID][id & 1];
     buf_t* w_buf = buffs[BUF_ID][!(id & 1)];
@@ -146,10 +145,15 @@ void sock_events(size_t *i) {
         size_t prev_size = buf_size(r_buf);
         ssize_t res_fill = buf_fill(fds[id].fd, r_buf, prev_size + 1);
         if (res_fill < 0 || (size_t) res_fill == prev_size) {
-            *i -= 1;
-            swap_buffs(buffs[BUF_ID], buffs[LAST_BUF]);
-            close_and_swap(id, id2);
-            return;
+            epr("EOF: r_buf->size: %d\n", (int) buf_size(r_buf));
+            if (fds[id2].fd < 0 || buf_empty(r_buf)) {
+                swap_buffs(buffs[BUF_ID], buffs[LAST_BUF]);
+                close_and_swap(id, id2);
+                return 1;
+            }
+            fds[id].fd *= -1;
+            fds[id].events = 0;
+            return 0;
         }
 
         if (buf_size(r_buf) == r_buf->capacity) {
@@ -159,10 +163,14 @@ void sock_events(size_t *i) {
         fds[id2].events |= POLLOUT;
     } else { // POLLOUT
         if (buf_flush(fds[id].fd, w_buf, 1) < 0) {
-            *i -= 1;
-            swap_buffs(buffs[BUF_ID], buffs[LAST_BUF]);
-            close_and_swap(id, id2);
-            return;
+            if (fds[id2].fd < 0 || buf_empty(r_buf)) {
+                swap_buffs(buffs[BUF_ID], buffs[LAST_BUF]);
+                close_and_swap(id, id2);
+                return 1;
+            }
+            fds[id].fd *= -1;
+            fds[id].events = 0;
+            return 0;
         }
 
         if (buf_size(w_buf) == 0) {
@@ -171,6 +179,7 @@ void sock_events(size_t *i) {
 
         fds[id2].events |= POLLIN;
     }
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -196,7 +205,7 @@ int main(int argc, char* argv[]) {
 
         for (size_t i = 0; i < cnt_fds; ++i) {
             if (fds[i].revents != 0) {
-                sock_events(&i);
+                i -= sock_events(i);
             }
         }
     }
