@@ -88,3 +88,11 @@ ssize_t buf_flush(int fd, buf_t *buf, size_t required) {
 void buf_clear(buf_t *buf) {
     buf->size = 0;
 }
+
+int buf_empty(buf_t *buf) {
+    return buf->size;
+}
+
+int buf_full(buf_t *buf) {
+    return buf->size == buf->capacity;
+}

@@ -11,8 +11,11 @@ typedef struct {
 
 /* construct empty buffer, return NULL if couldn't do malloc */
 buf_t *buf_new(size_t capacity);
+
 void buf_free(buf_t *);
+
 size_t buf_capacity(buf_t*); 
+
 size_t buf_size(buf_t*);
 
 /*
@@ -28,5 +31,9 @@ ssize_t buf_fill(int fd, buf_t *buf, size_t required);
 ssize_t buf_flush(int fd, buf_t *buf, size_t required);
 
 void buf_clear(buf_t *buf);
+
+int buf_full(buf_t *buf);
+
+int buf_empty(buf_t *buf);
 
 #endif
