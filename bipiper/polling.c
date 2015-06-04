@@ -8,6 +8,7 @@
 #include <bufio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/signal.h>
 
 #define epr(...) fprintf(stderr, __VA_ARGS__);
 #define EXP_STR(tok) #tok
@@ -145,7 +146,6 @@ int sock_events(size_t id) {
         size_t prev_size = buf_size(r_buf);
         ssize_t res_fill = buf_fill(fds[id].fd, r_buf, prev_size + 1);
         if (res_fill < 0 || (size_t) res_fill == prev_size) {
-            epr("EOF: r_buf->size: %d\n", (int) buf_size(r_buf));
             if (fds[id2].fd < 0 || buf_empty(r_buf)) {
                 swap_buffs(buffs[BUF_ID], buffs[LAST_BUF]);
                 close_and_swap(id, id2);
@@ -183,6 +183,10 @@ int sock_events(size_t id) {
 }
 
 int main(int argc, char* argv[]) {
+    struct sigaction sa;
+    sa.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &sa, NULL);
+
     if (argc < 3) {
         printf("usage: ./polling port1 port2");
         return 0;
