@@ -62,6 +62,7 @@ int get_listenning_socket(char* port) {
         epr("can't bind on port: %s\n", port);
         exit(EXIT_FAILURE);
     }
+    freeaddrinfo(result);
 
     return res_socket;
 }
