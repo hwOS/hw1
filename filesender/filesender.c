@@ -52,7 +52,8 @@ int main(int argc, char* argv[]) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC; /* Allow IPv4 or IPv6 */
     hints.ai_socktype = SOCK_STREAM;
-    check(getaddrinfo("localhost", port, &hints, &result));
+    hints.ai_flags = AI_PASSIVE;
+    check(getaddrinfo(NULL, port, &hints, &result));
     
     struct addrinfo* cp;
     for (cp = result; cp != NULL; cp = cp->ai_next) {
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]) {
             ssize_t res_fill, prev_size;
             do {
                 prev_size = buf_size(buf);
-                res_fill = buf_fill(target_fd, buf, prev_size + 1);
+                res_fill = buf_fill(target_fd, buf, 1);
                 check(res_fill);
                 if (buf_size(buf) > 0)
                     check(buf_flush(client_socket, buf, 1));

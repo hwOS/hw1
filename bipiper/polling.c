@@ -32,7 +32,8 @@ int get_listenning_socket(char* port) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    check(getaddrinfo("localhost", port, &hints, &result));
+    hints.ai_flags = AI_PASSIVE;
+    check(getaddrinfo(NULL, port, &hints, &result));
 
     int res_socket;
     struct addrinfo* cp = NULL;
@@ -145,7 +146,7 @@ int sock_events(size_t id) {
     if (fds[id].revents & POLLIN) {
 
         size_t prev_size = buf_size(r_buf);
-        ssize_t res_fill = buf_fill(fds[id].fd, r_buf, prev_size + 1);
+        ssize_t res_fill = buf_fill(fds[id].fd, r_buf, 1);
         if (res_fill < 0 || (size_t) res_fill == prev_size) {
             if (fds[id2].fd < 0 || buf_empty(r_buf)) {
                 swap_buffs(buffs[BUF_ID], buffs[LAST_BUF]);
